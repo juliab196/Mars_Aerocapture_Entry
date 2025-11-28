@@ -3,19 +3,6 @@ from trajectory_optimizer.constants import *
 from trajectory_optimizer.plot import plot
 import numpy as np
 
-"""
-“The following code aims to assess the viability of aerocapture by implementing a three-degree-of-freedom trajectory 
-simulation to model a non-thrusting, lifting entry with Mars aerocapture. 
-
-The optimal trajectory is determined by varying the entry velocity, entry flight angle and lift-to-drag ratio within certain
-ranges, in order to maximise the change in velocity (delta_v) while staying within deceleration, heating, altitude and flight 
-angle constraints. 
-
-Vehicle parameters including diameter, entry mass, drag coefficient, lift-to-drag-ratio, emissivity and heating limits were based on the Mars Science
-Laboratory entry capsule which delivered NASA's Curiosity rover to the surface of Mars in 2012. The deceleration limit was taken 
-from the allowable deceleration limit for a manned vehicle of 5 Gs (https://arc.aiaa.org/doi/abs/10.2514/3.26458?journalCode=jsr)
-"""
-
 """INITAL OPTIMAL GUESS"""
 v_e = 6000                       # entry velocity (m/s)
 gamma_e = np.radians(-14)        # entry flight angle (deg)
