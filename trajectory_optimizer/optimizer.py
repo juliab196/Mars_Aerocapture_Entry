@@ -38,16 +38,6 @@ def f(t, y, cL):
     dy_dt = [dv_dt, dgamma_dt, dx_dt, dh_dt]
     return dy_dt
 
-# Include a stopping criteria when Vehicle exits atmosphere
-def exit_atmosphere(t, y):
-    h = y[3]
-    return h - 120000.0 
-
-# Do not terminate integration when crossing 120 km so trajectories run to `final_time`.
-# We still capture the event (solution.t_events) if desired, but allow full integration.
-exit_atmosphere.terminal = False
-exit_atmosphere.direction = -1.0
-
 # Stop if altitude goes unexpectedly high (safety event)
 def altitude_too_high(t, y):
     h = y[3]
@@ -73,7 +63,7 @@ def solve_trajectory_IVP(initial_conditions, LD):
                     max_step = 0.05,
                     rtol = rtol, atol = atol,
                     dense_output = True,
-                    events=[exit_atmosphere, altitude_too_high])
+                    events=[altitude_too_high])
     # Mark on the solution if the altitude_too_high event fired (events index 1)
     try:
         solution.altitude_too_high = len(solution.t_events[1]) > 0
@@ -110,10 +100,8 @@ def perform_post_processing(solution, cL):
     # wall temperature
     Tw = ((q_stag_total) * 10000 / (sb * e_w)) ** 0.25
 
-    # Calculate deceleration (Gs)
-    Lift = 0.5 * rho * (velocity[:-1] ** 2) * S * cL
-    Drag = 0.5 * rho * (velocity[:-1] ** 2) * S * cD
-    deceleration = (0.5 * rho * (velocity[:-1] ** 2) * np.sqrt(1 + (Lift / Drag) ** 2) * (S * cD / m_e)) / 9.81
+    # Calculate deceleration (Gs) - drag-induced only
+    deceleration = (0.5 * rho * (velocity[:-1] ** 2) * S * cD / m_e) / 9.81
 
     # Local surface locations and angles
     shell_angle = np.radians(70)
@@ -153,7 +141,7 @@ def perform_post_processing(solution, cL):
 
     global iteration_count
     iteration_count += 1
-    print(f"Iteration {iteration_count}")
+    print(f"Test {iteration_count}")
 
     results = {
         "time": time.tolist(),
@@ -225,7 +213,9 @@ def deceleration_constraint(opt_variables):
         return -1e6
     decel_results = perform_post_processing(solution, cL)["deceleration"]
     max_decel_actual = max(decel_results)
-    return max_decel - max_decel_actual # must be > 0
+    constraint_value = max_decel - max_decel_actual
+    print(f"  Decel constraint: max_decel_actual = {max_decel_actual:.3f} Gs, constraint margin = {constraint_value:.6f}")
+    return constraint_value # must be > 0
 
 def minimum_altitude_constraint(opt_variables):
     v_e, gamma_e, LD = opt_variables
@@ -235,7 +225,7 @@ def minimum_altitude_constraint(opt_variables):
         return -1e6
     altitude_results = perform_post_processing(solution, cL)["altitude"]
     min_altitude_actual = min(altitude_results)
-    return min_altitude_actual - 20000  # must be > 0 (minimum 20 km)
+    return min_altitude_actual - 30000  # must be > 0 (minimum 30 km)
 
 def flight_angle_constraint(opt_variables):
         """
@@ -293,6 +283,7 @@ def optimize(opt_variables):
         {'type': 'ineq', 'fun': minimum_altitude_constraint},
         {'type': 'ineq', 'fun': flight_angle_constraint},
         {'type': 'ineq', 'fun': trajectory_validity_constraint}]
+    
     result = minimize(objective_delta_v, opt_variables, bounds=bounds, constraints=constraints, options={'disp': True})
 
     return result

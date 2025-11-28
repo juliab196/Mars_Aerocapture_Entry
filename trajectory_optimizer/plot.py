@@ -154,7 +154,7 @@ def plot(LD_opt, v_opt, gamma_opt_rad_e,  x_e, h_e, solution=None, post_processi
     """Extract Key Parameters"""
 
     # Key trajectory parameters
-    print('   Key trajectory parameters:')
+    print('\n   Key trajectory parameters:')
     print(f'Minimum altitude = {min(altitude_results)/1000:.2f} km')
     index_of_min_alt = np.argmin(altitude_results)
     print(f'Time of minimum altitude = {time_results[index_of_min_alt]:.2f} s')
