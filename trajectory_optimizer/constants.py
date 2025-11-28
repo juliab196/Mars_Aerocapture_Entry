@@ -1,8 +1,9 @@
 from math import pi
 
 """CONSTANTS"""
-g_s = 3.73                       # gravitational acceleration (m/s^2)
-rho_s = 0.020                    # surface density (kg/m^3)
+
+g_s = 3.73                       # surface gravitational acceleration on Mars (m/s^2)
+rho_s = 0.020                    # surface atmospheric density on Mars(kg/m^3)
 beta_neg = 11.1*1000             # scale height (m)
 rM = 3389500                     # radius of mars (m)
 cD = 1.5                         # drag coefficient
@@ -15,7 +16,7 @@ sb = 5.670374419 * 10**(-8)      # Stefan–Boltzmann constant (Wm^-2K^-4)
 e_w = 0.89                       # emissivity
 ballistic_coeff = m_e/(S*cD)     # ballistic coefficient (kg/m^2)
 initial_time = 0.0               # initial trajectory time (s)
-final_time = 500.0               # 
+final_time = 500.0               # length of trajectory modelling (s)
 
 """CONSTRAINT LIMITS"""
 max_heat_flux = 225              # maximum allowable heat flux (W/cm^2)
