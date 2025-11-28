@@ -214,3 +214,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Ignore project-specific trajectory files and image folder
+mars_entry_trajectory_edits*
+mars_entry_trajectory_OG*
+
+# Ignore the folder containing PNG images used for quick screenshots/plots
+willed/
+willed/*.png

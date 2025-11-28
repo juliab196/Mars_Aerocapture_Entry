@@ -175,152 +175,72 @@ def perform_post_processing(solution, cL):
 
     print("Post processing complete.")
 
-    # Return all as lists for compatibility
-    return (Tw.tolist(), q_stag_total.tolist(), heat_load_results.tolist(), deceleration.tolist(), 
-            x_list.tolist(), local_heat_flux_list, local_Tw_list, q_conv.tolist(), q_rad.tolist())
+    results = {
+        "time": time.tolist(),
+        "velocity": velocity.tolist(),
+        "altitude": altitude.tolist(),
+        "wall_temperatures": Tw.tolist(),
+        "stagnation_heat_flux": q_stag_total.tolist(),
+        "convective_heat_flux": q_conv.tolist(),
+        "radiative_heat_flux": q_rad.tolist(),
+        "total_heat_load": heat_load_results.tolist(),
+        "deceleration": deceleration.tolist(),
+        "x_list": x_list.tolist(),
+        "local_heat_flux": local_heat_flux_list,
+        "local_wall_temp": local_Tw_list,
+    }
+    return results
 
-
-"""
-def perform_post_processing(solution, cL):
-
-    # Extract solution 
-    time = solution.t
-    dt_array = np.diff(time)
-    y_results = solution.y
-    velocity = y_results[0]
-    altitude = y_results[3]
-
-    # Perform post processing for heating and deceleration loads
-    q_conv_results = []
-    q_rad_results = []
-    q_stag_total_results = []
-    rho_results = []
-    Tw_results = []
-    decel_results = []
-    C = 2.35e4; a = 0.525; b = 1.19     # Tauber-Sutton correation coefficients
-
-    for i in range(0,len(dt_array)):
-        # Calculate density 
-        rho = rho_s*exp(-altitude[i]/beta_neg)
-        rho_results.append(rho)
-        # Calculate convective heat flux
-        q_conv = 7.2074*(rho**0.4739)*((Diam/2)**
-                (-0.5405))*((velocity[i]/1000)**3.4956)
-        q_conv_results.append(q_conv)
-
-        # Calculate radiative heat flux
-        if velocity[i] >= 6000: func_v = 0.2
-        else: func_v = 0
-        q_rad = C*((Diam/2)**a)*(rho**b)*func_v
-        q_rad_results.append(q_rad)
-
-        # Calculate total stagnation point heat flux 
-        q_stag_total = q_rad + q_conv
-        q_stag_total_results.append(q_stag_total)
-        
-        # Calculate stagnation point wall temperature
-        Tw = ((q_stag_total)*10000/(sb*e_w))**(1/4)
-        Tw_results.append(Tw)
-        
-        # Calculate deceleration 
-        Lift = (1/2)*rho*(velocity[i]**2)*S*cL
-        Drag = (1/2)*rho*(velocity[i]**2)*S*cD
-        deceleration = ((1/2)*rho*(velocity[i]**2)*
-                        ((1+(Lift/Drag)**2)**(1/2))*(S*cD/m_e))/9.81
-        decel_results.append(deceleration)
-
-    # Determine local heat flux and local wall temperature
-    dt_array = np.diff(time)
-    shell_angle = np.radians(70)
-    shell_h = (Diam/2)/tan(shell_angle)
-    x_length = (Diam/2)/sin(shell_angle)
-    x_segments = 100
-    x_list = []
-    alpha_list = []
-    local_heat_flux_list = []
-    local_Tw_list = []
-
-    for i in range(0,x_segments):
-        # Find distance from stagnation point
-        x = x_length*i/x_segments
-        x_list.append(x)
-        
-        # Find body angle from stagnation point
-        side_length = sqrt(shell_h**2 + x**2 - 2*shell_h*x*cos(shell_angle))
-        alpha = asin(x*sin(shell_angle)/side_length)
-        alpha_list.append(alpha)
-    
-    for i in range(0,len(dt_array)):
-        local_heat_flux_at_i = []
-        local_Tw_at_i = []
-        for j in range(1,x_segments):
-            # Find local heating across all x for a particular time step
-            local_heat_flux = (9.43*10**(-5))*sqrt((rho_results[i]*cos(alpha_list[j])
-                    *sin(alpha_list[j]))/x_list[j])*velocity[i]**3 # W/m^2
-            local_heat_flux_at_i.append(local_heat_flux/10000)
-            # Find local wall tempearture across all x for a particular time step
-            local_Tw = (local_heat_flux/(sb*e_w))**(1/4) #K
-            local_Tw_at_i.append(local_Tw)
-        local_heat_flux_list.append(local_heat_flux_at_i)
-        local_Tw_list.append(local_Tw_at_i)
-
-    # Determine total heat load across entire trajectory
-    # Compute actual adaptive time step array from solver times 
-    dt_array = np.diff(time)
-    heat_load_results = [0]*x_segments
-    for i in range(0,len(dt_array)):
-        for j in range(0,x_segments-1):
-            heat_load_results[j] += local_heat_flux_list[i][j]*dt_array[i] #J/cm^2
-
-    return Tw_results, q_stag_total_results, heat_load_results, decel_results, x_list, local_heat_flux_list, local_Tw_list, q_conv_results, q_rad_results
-"""
 
 #------------------------------------------------------------------------------
 """Optimize Trajectory Problem"""
 # GOALS: maximize delta-v while staying within heating and acceleration limits
-def objective_delta_v(z):
-    v_e, gamma_e_deg, LD = z
-    gamma_e = np.radians(gamma_e_deg)
+def objective_delta_v(opt_variables):
+
+    v_e, gamma_e, LD = opt_variables
     initial_conditions = [v_e, gamma_e, x_e, h_e] 
     solution, cL = solve_trajectory_IVP(initial_conditions, LD)
     velocity = solution.y[0]
     v_final = velocity[-1]
     delta_v = v_e - v_final 
+
     return -delta_v
 
-def heat_flux_constraint(z):
-    v_e, gamma_e_deg, LD = z
-    gamma_e = np.radians(gamma_e_deg)
+def heat_flux_constraint(opt_variables):
+
+    v_e, gamma_e, LD = opt_variables
     initial_conditions = [v_e, gamma_e, x_e, h_e] 
     solution, cL = solve_trajectory_IVP(initial_conditions, LD)
-    _, q_stag_total_results, _, _, _, _, _, _, _ = perform_post_processing(solution, cL)
+    q_stag_total_results = perform_post_processing(solution, cL)["stagnation_heat_flux"]
     max_heat_flux_actual = max(q_stag_total_results)
+
     return max_heat_flux - max_heat_flux_actual # must be >0 
 
-def wall_temp_constraint(z):
-    v_e, gamma_e_deg, LD = z
-    gamma_e = np.radians(gamma_e_deg)
+def wall_temp_constraint(opt_variables):
+
+    v_e, gamma_e, LD = opt_variables
     initial_conditions = [v_e, gamma_e, x_e, h_e] 
     solution, cL = solve_trajectory_IVP(initial_conditions, LD)
-    Tw_results, _, _, _, _, _, _, _, _ = perform_post_processing(solution, cL)
+    Tw_results = perform_post_processing(solution, cL)["wall_temperatures"]
     max_Tw_actual = max(Tw_results)
+
     return max_Tw - max_Tw_actual # must be > 0 
 
-def total_heat_load_constraint(z):
-    v_e, gamma_e_deg, LD = z
-    gamma_e = np.radians(gamma_e_deg)
+def total_heat_load_constraint(opt_variables):
+
+    v_e, gamma_e, LD = opt_variables
     initial_conditions = [v_e, gamma_e, x_e, h_e] 
     solution, cL = solve_trajectory_IVP(initial_conditions, LD)
-    _, _, heat_load_results, _, _, _, _, _, _ = perform_post_processing(solution, cL)
+    heat_load_results = perform_post_processing(solution, cL)["total_heat_load"]
     max_total_heat_load_actual = max(heat_load_results)
+
     return max_total_heat_load - max_total_heat_load_actual # must be > 0
 
-def deceleration_constraint(z):
-    v_e, gamma_e_deg, LD = z
-    gamma_e = np.radians(gamma_e_deg)
+def deceleration_constraint(v_e, gamma_e, LD):
+    v_e, gamma_e, LD = opt_variables
     initial_conditions = [v_e, gamma_e, x_e, h_e] 
     solution, cL = solve_trajectory_IVP(initial_conditions, LD)
-    _, _, _, decel_results, _, _, _, _, _ = perform_post_processing(solution, cL)
+    decel_results = perform_post_processing(solution, cL)["deceleration"]
     max_decel_actual = max(decel_results)
     return max_decel - max_decel_actual # must be > 0 
 
@@ -336,13 +256,13 @@ constraints = [
     {'type': 'ineq', 'fun': deceleration_constraint}]
 
 # Inital guess
-v_e = 6000                 # entry velocity (m/s)
+v_e = 6000               # entry velocity (m/s)
 gamma_e = -11.5          # entry flight angle (deg)
 LD = 0.4
-z0 = [v_e, gamma_e, LD]
+opt_variables = [v_e, np.radians(gamma_e), LD]
     
 # Perform optimization
-result = minimize(objective_delta_v, z0, bounds=bounds, constraints=constraints, options={'disp': True})
+result = minimize(objective_delta_v, opt_variables, bounds=bounds, constraints=constraints, options={'disp': True})
 
 v_opt, gamma_opt_deg, LD_opt = result.x
 delta_v_opt = -result.fun
@@ -356,18 +276,28 @@ print(f"Maximum achievable delta-v (m/s): {delta_v_opt:.2f}")
 
 #------------------------------------------------------------------------------
 """Post Processing"""
-optimal_initial_conditions = [v_opt, gamma_opt_deg, x_e, h_e]
-optimal_LD = LD_opt
-optimal_solution, optimal_cL = solve_trajectory_IVP(optimal_initial_conditions, optimal_LD)
-Tw_results, q_stag_total_results, heat_load_results, deceleration_results, x_list, local_heat_flux_list, local_Tw_list, q_conv_results, q_rad_results = perform_post_processing(optimal_solution, optimal_cL)
+opt_initial_conditions = [v_opt, gamma_opt_deg, x_e, h_e]
+opt_solution, opt_cL = solve_trajectory_IVP(opt_initial_conditions, LD_opt)
 
 # Extract results from numerical integration
-time_results = optimal_solution.t
-velocity_results = optimal_solution.y[0]
-raw_gamma_results = optimal_solution.y[1]
+time_results = opt_solution.t
+velocity_results = opt_solution.y[0]
+raw_gamma_results = opt_solution.y[1]
 gamma_results = np.degrees(raw_gamma_results)
-down_range_results = optimal_solution.y[2]
-altitude_results = optimal_solution.y[3]
+down_range_results = opt_solution.y[2]
+altitude_results = opt_solution.y[3]
+
+post_processing_results = perform_post_processing(opt_solution, opt_cL)
+
+Tw_results = post_processing_results["wall_temperatures"]
+q_stag_total_results = post_processing_results["stagnation_heat_flux"]
+heat_load_results = post_processing_results["total_heat_load"]
+decel_results = post_processing_results["deceleration"]
+x_list = post_processing_results["x_list"]
+local_heat_flux_list = post_processing_results["local_heat_flux"]
+local_Tw_list = post_processing_results["local_wall_temp"]
+q_conv_results = post_processing_results["convective_heat_flux"]
+q_rad_results = post_processing_results["radiative_heat_flux"]
 
 
 """Plot Results"""
@@ -424,7 +354,7 @@ plt.show()
 
 # Deceleration plot
 fig, ax = plt.subplots()
-ax.plot(time_results, deceleration_results)
+ax.plot(time_results, decel_results)
 ax.legend
 ax.set_title('Time vs Deceleration')
 ax.set_xlabel('Time (sec)')
@@ -497,8 +427,8 @@ print(f'Finishing flight angle = {gamma_results[-1]:.2f} deg')
 print(f'Maximum down range distance = {max(down_range_results)/1000:.2f} km')
 print(f'Minimum velocity = {min(velocity_results)/1000:.2f} km/s')
 print(f'Finishing velocity = {velocity_results[-1]/1000:.2f} km/s')
-print(f'Maximum deceleration = {max(deceleration_results):.2f} Gs')
-index_of_max_decel = deceleration_results.index(max(deceleration_results))
+print(f'Maximum deceleration = {max(decel_results):.2f} Gs')
+index_of_max_decel = decel_results.index(max(decel_results))
 print(f'Time of maximum deceleration = {time_results[index_of_max_decel]:.2f} s')
 
 
